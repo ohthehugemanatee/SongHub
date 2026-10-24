@@ -1,58 +1,22 @@
 import { AddIcon, MinusIcon } from '@chakra-ui/icons'
 import { Badge, Flex, Icon, IconButton, Text } from '@chakra-ui/react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import useChordTransposer from '../hooks/useChordTransposer'
 import { HiArrowsUpDown } from 'react-icons/hi2'
 import { UGChordCollection } from '../types/tabs'
 interface ChordTransposerProps {
   chords: UGChordCollection[]
   setChords: Function
+  amount: number
+  setAmount: (amount: number) => void
 }
 export default function ChordTransposer({
   chords,
   setChords,
+  amount,
+  setAmount,
 }: ChordTransposerProps): JSX.Element {
-  const [amount, setAmount] = useState<number>(0)
   const { data: chordsTransposed } = useChordTransposer(Object.keys(chords))
-  const transposeChord = (chord: string, amount: number) => {
-    var scale = [
-      'C',
-      'C#',
-      'D',
-      'D#',
-      'E',
-      'F',
-      'F#',
-      'G',
-      'G#',
-      'A',
-      'A#',
-      'B',
-    ]
-    return chord.replace(/[CDEFGAB]#?/g, function (match) {
-      const i = (scale.indexOf(match) + amount) % scale.length
-      return scale[i < 0 ? i + scale.length : i]
-    })
-  }
-  const handleClickTranspose = (amount: number) => {
-    setAmount((prevVal) => prevVal + amount)
-    document
-      .querySelectorAll('span.js-chord-chord')
-      ?.forEach(
-        (el: HTMLSpanElement) =>
-          (el.innerText = transposeChord(el.innerText.trim(), amount)),
-      )
-
-    setChords((prevVal: UGChordCollection) => {
-      let newVal = {}
-      Object.keys(prevVal).forEach((key) => {
-        const newKey = transposeChord(key, amount)
-        newVal[newKey] = prevVal[key]
-      })
-      return newVal
-    })
-  }
-
   useEffect(() => {
     if (chordsTransposed) {
       setChords(chordsTransposed)
@@ -77,7 +41,7 @@ export default function ChordTransposer({
         fontWeight={'normal'}
         px="3"
         py="4"
-        onClick={() => handleClickTranspose(-1)}
+        onClick={() => setAmount(amount - 1)}
         aria-label="Transpose down"
         icon={<MinusIcon />}
       />
@@ -95,7 +59,7 @@ export default function ChordTransposer({
         fontWeight={'normal'}
         px="3"
         py="4"
-        onClick={() => handleClickTranspose(1)}
+        onClick={() => setAmount(amount + 1)}
         aria-label="Transpose up"
         icon={<AddIcon />}
       />

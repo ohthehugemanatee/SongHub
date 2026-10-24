@@ -50,6 +50,8 @@ export interface Tab {
   htmlTab?: string
   versions?: Tab[]
   chordsDiagrams?: UGChordCollection[]
+  // Semitones applied on display; htmlTab, raw_tabs and chordsDiagrams stay in the source key.
+  transpose?: number
   savedAt?: string
   savedFilename?: string
   marks?: {

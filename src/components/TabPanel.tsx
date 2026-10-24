@@ -39,6 +39,12 @@ import FontSizeManager from './FontSizeManager'
 import TabActionButtons from './TabActionButtons'
 import TabSaveButton from './TabSaveButton'
 import SetlistAddButton from './SetlistAddButton'
+import {
+  prefersFlats,
+  tabKey,
+  transposeChordCollection,
+  transposeTab,
+} from '../lib/core/transpose'
 
 interface TabPanelProps {
   selectedTab: Tab
@@ -89,6 +95,9 @@ export default function TabPanel({
 
   const [chordsDiagrams, setChordsDiagrams] = useState<UGChordCollection[]>(
     selectedTabContent?.chordsDiagrams,
+  )
+  const [transpose, setTranspose] = useState<number>(
+    selectedTabContent?.transpose || 0,
   )
   const [showAutoscroll, setShowAutoscroll] = useState<boolean>(false)
   const [showBackingTrack, setShowBackingTrack] = useState<boolean>(false)
@@ -233,6 +242,24 @@ export default function TabPanel({
   useEffect(() => {
     setChordsDiagrams(selectedTabContent?.chordsDiagrams)
   }, [selectedTabContent])
+
+  useEffect(() => {
+    setTranspose(selectedTabContent?.transpose || 0)
+  }, [selectedTabContent?.url, selectedTabContent?.transpose])
+
+  const transposedHtmlTab = useMemo(
+    () => transposeTab(selectedTabContent, transpose)?.htmlTab,
+    [selectedTabContent, transpose],
+  )
+  const transposedChordsDiagrams = useMemo(
+    () =>
+      transposeChordCollection(
+        chordsDiagrams,
+        transpose,
+        prefersFlats(tabKey(selectedTabContent), transpose),
+      ),
+    [chordsDiagrams, selectedTabContent, transpose],
+  )
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -582,8 +609,8 @@ export default function TabPanel({
               {mobileActionsFirst ? (
                 <>
                   <Flex alignItems={'center'} gap={1} flexShrink={0}>
-                    <SetlistAddButton tab={selectedTabContent} isLoading={isLoading} />
-                    <TabSaveButton tab={selectedTabContent} isLoading={isLoading} />
+                    <SetlistAddButton tab={selectedTabContent} transpose={transpose} isLoading={isLoading} />
+                    <TabSaveButton tab={selectedTabContent} transpose={transpose} isLoading={isLoading} />
                   </Flex>
 
                   {musicianMarkingEnabled && savedFilename && (
@@ -639,8 +666,8 @@ export default function TabPanel({
                   )}
 
                   <Flex alignItems={'center'} gap={1} flexShrink={0}>
-                    <SetlistAddButton tab={selectedTabContent} isLoading={isLoading} />
-                    <TabSaveButton tab={selectedTabContent} isLoading={isLoading} />
+                    <SetlistAddButton tab={selectedTabContent} transpose={transpose} isLoading={isLoading} />
+                    <TabSaveButton tab={selectedTabContent} transpose={transpose} isLoading={isLoading} />
                   </Flex>
                 </>
               )}
@@ -660,6 +687,8 @@ export default function TabPanel({
                   <ChordTransposer
                     chords={chordsDiagrams}
                     setChords={setChordsDiagrams}
+                    amount={transpose}
+                    setAmount={setTranspose}
                   />
                 </Flex>
               ) : (
@@ -789,8 +818,8 @@ export default function TabPanel({
               }
             } : undefined}
           >
-            {typeof selectedTabContent?.htmlTab === 'string'
-              ? HTMLReactParser(selectedTabContent.htmlTab)
+            {typeof transposedHtmlTab === 'string'
+              ? HTMLReactParser(transposedHtmlTab)
               : null}
           </Flex>
         </Skeleton>
@@ -870,7 +899,7 @@ export default function TabPanel({
         </Flex>
       )}
 
-      <ChordDiagram chords={chordsDiagrams} />
+      <ChordDiagram chords={transposedChordsDiagrams} />
       <Autoscroller
         showAutoscroll={showAutoscroll}
         isLoading={isLoading}
