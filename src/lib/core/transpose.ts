@@ -1,101 +1,109 @@
+import { KeySignatures, transpose as transposeText } from 'chord-transposer'
 import { Tab, UGChordCollection } from '../../types/tabs'
 
-// Ported 1:1 in homenet-documentation's remarkable-sync/sync.py so the
-// reMarkable PDF spells transposed chords the same way the UI does.
-
-const SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-const FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
-const NATURALS: Record<string, number> = {
-  C: 0,
-  D: 2,
-  E: 4,
-  F: 5,
-  G: 7,
-  A: 9,
-  B: 11,
-}
-// Pitch classes of keys conventionally written with flats: C F Bb Eb Ab Db / A D G C F Bb Eb minor.
-const FLAT_MAJOR_KEYS = new Set([0, 5, 10, 3, 8, 1])
-const FLAT_MINOR_KEYS = new Set([9, 2, 7, 0, 5, 10, 3])
-
-const NOTE_RE = /^([A-G])([#b]?)/
+const ROOT_RE = /^[A-G][#b]?/
+const NOTE_RE = /(^|\/)([A-G][#b]?)/g
 const CHORD_SPAN_RE = /(<span[^>]*js-chord-chord[^>]*>)([^<]*)(<\/span>)/g
 const CHORD_TAG_RE = /\[ch\]([^[]*)\[\/ch\]/g
+// chord-transposer spells strictly by key signature (Cb in flat keys, E# in F#),
+// and uses sharps for accidentals in C/Am, where chord sheets write Bb, Eb, Ab.
+const READABLE: Record<string, string> = {
+  Cb: 'B',
+  Fb: 'E',
+  'E#': 'F',
+  'B#': 'C',
+}
+const FLATS_IN_C: Record<string, string> = {
+  'A#': 'Bb',
+  'D#': 'Eb',
+  'G#': 'Ab',
+}
 
-function pitchClass(note: string): number | null {
-  const m = NOTE_RE.exec(note)
-  if (!m) return null
-  const offset = m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0
-  return (NATURALS[m[1]] + offset + 12) % 12
+const ENHARMONIC: Record<string, string> = {
+  'C#': 'Db',
+  Db: 'C#',
+  'D#': 'Eb',
+  Eb: 'D#',
+  'F#': 'Gb',
+  Gb: 'F#',
+  'G#': 'Ab',
+  Ab: 'G#',
+  'A#': 'Bb',
+  Bb: 'A#',
+  ...READABLE,
 }
 
 function mod12(n: number): number {
   return ((n % 12) + 12) % 12
 }
 
-function shiftNote(note: string, semitones: number, flats: boolean): string {
-  const m = NOTE_RE.exec(note)
-  if (!m) return note
-  const pc = mod12((pitchClass(m[0]) as number) + semitones)
-  return (flats ? FLATS : SHARPS)[pc] + note.slice(m[0].length)
+// chord-transposer silently maps unknown key names (Dbm, D#) to the wrong signature.
+function isKeySignature(key: string, minor: boolean): boolean {
+  const sig = KeySignatures.keySignatureMap.get(key)
+  return Boolean(sig) && (minor ? sig.relativeMinor : sig.majorKey) === key
 }
 
-/** Whether the key that `keyChord` lands on after transposing is written with flats. */
-export function prefersFlats(
-  keyChord: string | undefined,
-  semitones: number,
-): boolean {
-  const pc = keyChord ? pitchClass(keyChord.trim()) : null
-  if (pc === null) return false
-  const suffix = keyChord.trim().replace(NOTE_RE, '')
+/** Key named by a chord's root and quality, e.g. "Cmaj7" -> "C", "Dbm7" -> "C#m". */
+function keyOf(chord: string | undefined): string | undefined {
+  const root = chord?.trim().match(ROOT_RE)?.[0]
+  if (!root) return undefined
+  const suffix = chord.trim().slice(root.length)
   const minor = suffix.startsWith('m') && !suffix.startsWith('maj')
-  return (minor ? FLAT_MINOR_KEYS : FLAT_MAJOR_KEYS).has(mod12(pc + semitones))
-}
-
-export function transposeChord(
-  chord: string,
-  semitones: number,
-  flats: boolean,
-): string {
-  if (mod12(semitones) === 0) return chord
-  const [root, ...rest] = chord.split('/')
-  const bass = rest.join('/')
-  const shiftedRoot = shiftNote(root, semitones, flats)
-  if (!rest.length) return shiftedRoot
-  return `${shiftedRoot}/${
-    pitchClass(bass) === null ? bass : shiftNote(bass, semitones, flats)
-  }`
-}
-
-function firstMatch(
-  re: RegExp,
-  text: string | undefined,
-  group: number,
-): string | undefined {
-  if (!text) return undefined
-  const m = new RegExp(re.source).exec(text)
-  return m ? m[group].trim() : undefined
+  return [root, ENHARMONIC[root]]
+    .filter(Boolean)
+    .map((r) => (minor ? `${r}m` : r))
+    .find((k) => isKeySignature(k, minor))
 }
 
 /** The tab's key: UG's tonality if it names a note, else the first chord in the song. */
 export function tabKey(tab: Tab | undefined): string | undefined {
   if (!tab) return undefined
-  if (tab.tonality && pitchClass(tab.tonality) !== null) return tab.tonality
+  const first = (re: RegExp, text: string | undefined, group: number) =>
+    text ? new RegExp(re.source).exec(text)?.[group] : undefined
   return (
-    firstMatch(CHORD_TAG_RE, tab.raw_tabs, 1) ??
-    firstMatch(CHORD_SPAN_RE, tab.htmlTab, 2)
+    keyOf(tab.tonality) ??
+    keyOf(first(CHORD_TAG_RE, tab.raw_tabs, 1)) ??
+    keyOf(first(CHORD_SPAN_RE, tab.htmlTab, 2))
   )
+}
+
+/** Returns a function shifting one chord name by `semitones`, spelled for the target key. */
+export function chordShifter(
+  key: string | undefined,
+  semitones: number,
+): (chord: string) => string {
+  if (!key || mod12(semitones) === 0) return (chord) => chord
+  const n = mod12(semitones)
+  const target = transposeText(key).fromKey(key).up(n).toString()
+  const toFSharp = target === 'Gb'
+  const respell = {
+    ...READABLE,
+    ...(target === 'C' || target === 'Am' ? FLATS_IN_C : {}),
+  }
+  return (chord) => {
+    const lead = chord.match(/^\s*/)[0]
+    const trail = chord.match(/\s*$/)[0]
+    const from = transposeText(chord.trim()).fromKey(key)
+    const shifted = (toFSharp ? from.toKey('F#') : from.up(n)).toString()
+    return (
+      lead +
+      shifted.replace(
+        NOTE_RE,
+        (_, sep, note) => sep + (respell[note] ?? note),
+      ) +
+      trail
+    )
+  }
 }
 
 export function transposeChordCollection(
   chords: UGChordCollection[] | undefined,
-  semitones: number,
-  flats: boolean,
+  shift: (chord: string) => string,
 ): UGChordCollection[] | undefined {
-  if (!chords || mod12(semitones) === 0) return chords
+  if (!chords) return chords
   const out = {}
   Object.keys(chords).forEach((key) => {
-    out[transposeChord(key, semitones, flats)] = chords[key]
+    out[shift(key)] = chords[key]
   })
   return out as UGChordCollection[]
 }
@@ -103,12 +111,7 @@ export function transposeChordCollection(
 /** Returns `tab` with every chord in htmlTab, raw_tabs and chordsDiagrams shifted by `semitones`. */
 export function transposeTab(tab: Tab, semitones: number): Tab {
   if (!tab || mod12(semitones) === 0) return tab
-  const flats = prefersFlats(tabKey(tab), semitones)
-  const shift = (chord: string) => {
-    const lead = chord.match(/^\s*/)[0]
-    const trail = chord.match(/\s*$/)[0]
-    return lead + transposeChord(chord.trim(), semitones, flats) + trail
-  }
+  const shift = chordShifter(tabKey(tab), semitones)
   return {
     ...tab,
     htmlTab: tab.htmlTab?.replace(
@@ -119,10 +122,15 @@ export function transposeTab(tab: Tab, semitones: number): Tab {
       CHORD_TAG_RE,
       (_, chord) => `[ch]${shift(chord)}[/ch]`,
     ),
-    chordsDiagrams: transposeChordCollection(
-      tab.chordsDiagrams,
-      semitones,
-      flats,
-    ),
+    chordsDiagrams: transposeChordCollection(tab.chordsDiagrams, shift),
+  }
+}
+
+/** The tab as saved: source-key content, the offset, and the transposed raw_tabs the reMarkable sync renders. */
+export function tabForSave(tab: Tab, semitones: number): Tab {
+  return {
+    ...tab,
+    transpose: semitones,
+    raw_tabs_transposed: transposeTab(tab, semitones)?.raw_tabs,
   }
 }

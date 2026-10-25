@@ -1,6 +1,7 @@
 import { Button, Icon, Tooltip, useToast } from '@chakra-ui/react'
 import { FiSave } from 'react-icons/fi'
 import { Tab } from '../types/tabs'
+import { tabForSave } from '../lib/core/transpose'
 import { useState } from 'react'
 
 interface TabSaveButtonProps {
@@ -17,7 +18,7 @@ export default function TabSaveButton({ tab, transpose, isLoading }: TabSaveButt
     if (!tab) return
     setIsSaving(true)
     try {
-      const tabToSave: Tab = { ...tab, transpose }
+      const tabToSave = tabForSave(tab, transpose)
 
       const res = await fetch('/api/saved-tabs', {
         method: 'POST',

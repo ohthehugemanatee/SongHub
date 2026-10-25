@@ -40,7 +40,7 @@ import TabActionButtons from './TabActionButtons'
 import TabSaveButton from './TabSaveButton'
 import SetlistAddButton from './SetlistAddButton'
 import {
-  prefersFlats,
+  chordShifter,
   tabKey,
   transposeChordCollection,
   transposeTab,
@@ -255,8 +255,7 @@ export default function TabPanel({
     () =>
       transposeChordCollection(
         chordsDiagrams,
-        transpose,
-        prefersFlats(tabKey(selectedTabContent), transpose),
+        chordShifter(tabKey(selectedTabContent), transpose),
       ),
     [chordsDiagrams, selectedTabContent, transpose],
   )

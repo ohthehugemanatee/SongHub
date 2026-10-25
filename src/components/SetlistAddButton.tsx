@@ -1,6 +1,7 @@
 import { IconButton, Tooltip, useDisclosure, useToast } from '@chakra-ui/react'
 import { FiPlus } from 'react-icons/fi'
 import { Tab } from '../types/tabs'
+import { tabForSave } from '../lib/core/transpose'
 import DatePickerModal, { getLastSelectedDate, setLastSelectedDate } from './DatePickerModal'
 import { useState, useEffect } from 'react'
 
@@ -27,7 +28,7 @@ export default function SetlistAddButton({ tab, transpose, isLoading }: Props): 
     // First, save the tab locally if it's from Ultimate Guitar (not already saved)
     if (tab.url && !tab.url.startsWith('local://')) {
       try {
-        const tabToSave: Tab = { ...tab, transpose }
+        const tabToSave = tabForSave(tab, transpose)
 
         await fetch('/api/saved-tabs', {
           method: 'POST',

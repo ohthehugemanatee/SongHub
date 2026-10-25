@@ -52,6 +52,8 @@ export interface Tab {
   chordsDiagrams?: UGChordCollection[]
   // Semitones applied on display; htmlTab, raw_tabs and chordsDiagrams stay in the source key.
   transpose?: number
+  // raw_tabs at that offset; written on save for the reMarkable sync.
+  raw_tabs_transposed?: string
   savedAt?: string
   savedFilename?: string
   marks?: {
