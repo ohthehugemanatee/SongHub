@@ -255,6 +255,7 @@ export default function TabPanel({
     () =>
       transposeChordCollection(
         chordsDiagrams,
+        transpose,
         chordShifter(tabKey(selectedTabContent), transpose),
       ),
     [chordsDiagrams, selectedTabContent, transpose],
