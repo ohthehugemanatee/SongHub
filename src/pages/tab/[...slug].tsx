@@ -89,6 +89,7 @@ export default function TabPage(): JSX.Element {
               selectedTabContentBackground?.marks ||
               prev?.marks ||
               selectedTabContent?.marks,
+            transpose: selectedTabContent?.transpose,
           }))
         }
       } else {
@@ -115,6 +116,7 @@ export default function TabPage(): JSX.Element {
       savedAt: selectedTabContent?.savedAt || prev?.savedAt,
       savedFilename: selectedTabContent?.savedFilename || prev?.savedFilename,
       marks: selectedTabContent?.marks || prev?.marks,
+      transpose: selectedTabContent?.transpose,
     }))
   }, [selectedTabContent])
 

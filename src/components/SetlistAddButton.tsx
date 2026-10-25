@@ -1,15 +1,17 @@
 import { IconButton, Tooltip, useDisclosure, useToast } from '@chakra-ui/react'
 import { FiPlus } from 'react-icons/fi'
-import { Tab, UGChordCollection } from '../types/tabs'
+import { Tab } from '../types/tabs'
+import { tabForSave } from '../lib/core/transpose'
 import DatePickerModal, { getLastSelectedDate, setLastSelectedDate } from './DatePickerModal'
 import { useState, useEffect } from 'react'
 
 interface Props {
   tab: Tab
+  transpose: number
   isLoading: boolean
 }
 
-export default function SetlistAddButton({ tab, isLoading }: Props): JSX.Element {
+export default function SetlistAddButton({ tab, transpose, isLoading }: Props): JSX.Element {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const toast = useToast()
   const [lastDate, setLastDate] = useState<string | null>(null)
@@ -26,48 +28,7 @@ export default function SetlistAddButton({ tab, isLoading }: Props): JSX.Element
     // First, save the tab locally if it's from Ultimate Guitar (not already saved)
     if (tab.url && !tab.url.startsWith('local://')) {
       try {
-        // Read chord names from DOM to capture transposition state
-        let savedChords = tab.chordsDiagrams
-        if (tab.chordsDiagrams) {
-          const chordSpans = document.querySelectorAll('span.js-chord-chord')
-          const domChordNames = Array.from(new Set(
-            Array.from(chordSpans).map(el => el.textContent?.trim()).filter(Boolean) as string[]
-          ))
-          const originalKeys = Object.keys(tab.chordsDiagrams)
-          if (domChordNames.length > 0 && domChordNames.length === originalKeys.length) {
-            const newChords: Record<string, unknown> = {}
-            domChordNames.forEach((newKey, i) => {
-              newChords[newKey] = (tab.chordsDiagrams as unknown as Record<string, unknown>)[originalKeys[i]]
-            })
-            savedChords = newChords as unknown as UGChordCollection[]
-          }
-        }
-
-        // Build transposed htmlTab
-        let htmlTabToSave = tab.htmlTab
-        if (tab.chordsDiagrams && savedChords) {
-          const originalKeys = Object.keys(tab.chordsDiagrams)
-          const transposedKeys = Object.keys(savedChords as unknown as Record<string, unknown>)
-          if (originalKeys.length === transposedKeys.length) {
-            let html = tab.htmlTab
-            originalKeys.forEach((orig, i) => {
-              const transposed = transposedKeys[i]
-              if (orig !== transposed) {
-                html = html.replace(
-                  new RegExp(`(<span[^>]*js-chord-chord[^>]*>)${orig.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(<\/span>)`, 'g'),
-                  `$1${transposed}$2`
-                )
-              }
-            })
-            htmlTabToSave = html
-          }
-        }
-
-        const tabToSave: Tab = {
-          ...tab,
-          htmlTab: htmlTabToSave,
-          chordsDiagrams: savedChords,
-        }
+        const tabToSave = tabForSave(tab, transpose)
 
         await fetch('/api/saved-tabs', {
           method: 'POST',
