@@ -1,5 +1,6 @@
 import { KeySignatures, transpose as transposeText } from 'chord-transposer'
 import { Tab, UGChordCollection } from '../../types/tabs'
+import { shiftVoicing, voicingsFor } from './voicings'
 
 const ROOT_RE = /^[A-G][#b]?/
 const NOTE_RE = /(^|\/)([A-G][#b]?)/g
@@ -96,14 +97,19 @@ export function chordShifter(
   }
 }
 
+/** Renames chords by `shift` and gives each the voicings of its new name. */
 export function transposeChordCollection(
   chords: UGChordCollection[] | undefined,
+  semitones: number,
   shift: (chord: string) => string,
 ): UGChordCollection[] | undefined {
-  if (!chords) return chords
+  if (!chords || mod12(semitones) === 0) return chords
   const out = {}
   Object.keys(chords).forEach((key) => {
-    out[shift(key)] = chords[key]
+    const name = shift(key)
+    out[name] =
+      voicingsFor(name) ??
+      (chords[key] || []).map((v) => shiftVoicing(v, semitones))
   })
   return out as UGChordCollection[]
 }
@@ -122,7 +128,11 @@ export function transposeTab(tab: Tab, semitones: number): Tab {
       CHORD_TAG_RE,
       (_, chord) => `[ch]${shift(chord)}[/ch]`,
     ),
-    chordsDiagrams: transposeChordCollection(tab.chordsDiagrams, shift),
+    chordsDiagrams: transposeChordCollection(
+      tab.chordsDiagrams,
+      semitones,
+      shift,
+    ),
   }
 }
 
