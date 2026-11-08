@@ -60,6 +60,17 @@ Then open:
 
 - http://localhost:3005
 
+## Container image
+
+Every push to `main` builds the `Dockerfile` for `linux/amd64` and publishes
+`ghcr.io/ohthehugemanatee/songhub:devel` and an immutable
+`ghcr.io/ohthehugemanatee/songhub:sha-<commit>`.
+
+`devel` is the tag every build of our forks publishes, here and for
+`remarkable-sync` in `homenet-documentation`. It moves with the default branch.
+The cluster runs it with `imagePullPolicy: Always`, so a deploy is restarting
+the pod, and a rollback pins a `sha-` tag.
+
 ## Healthcheck & Diagnostics
 
 - Health endpoint: `http://localhost:3005/api/health`

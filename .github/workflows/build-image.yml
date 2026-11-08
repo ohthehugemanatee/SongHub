@@ -43,5 +43,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/ohthehugemanatee/songhub:main
+            ghcr.io/ohthehugemanatee/songhub:devel
             ghcr.io/ohthehugemanatee/songhub:sha-${{ github.sha }}
